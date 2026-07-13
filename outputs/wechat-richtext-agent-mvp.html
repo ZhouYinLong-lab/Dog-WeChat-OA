@@ -1,0 +1,1337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>微信公众号富文本往返编辑器 MVP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #1d252d;
+      --muted: #607080;
+      --line: #d9e0e7;
+      --brand: #146c94;
+      --brand-2: #0f4d68;
+      --good: #16794f;
+      --warn: #a15c09;
+      --bad: #b3261e;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 0;
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #a9b7c4;
+      background: #f8fafc;
+    }
+
+    button.primary {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      border-color: var(--brand-2);
+      background: var(--brand-2);
+    }
+
+    button.icon {
+      width: 36px;
+      padding: 0;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 58px 1fr;
+      height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      box-shadow: var(--shadow);
+      z-index: 2;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: #dff3f7;
+      color: var(--brand-2);
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px minmax(420px, 1fr) 360px;
+      gap: 12px;
+      min-height: 0;
+      padding: 12px;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .panel-body {
+      min-height: 0;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .dropzone {
+      display: grid;
+      place-items: center;
+      min-height: 138px;
+      padding: 18px;
+      border: 1px dashed #9dafbf;
+      border-radius: 8px;
+      background: #f8fbfd;
+      color: var(--muted);
+      text-align: center;
+      outline: none;
+    }
+
+    .dropzone:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(20, 108, 148, 0.14);
+    }
+
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .metric {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 18px;
+      color: var(--brand-2);
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f5f7f9;
+    }
+
+    .tabs button {
+      flex: 1;
+      min-height: 30px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .tabs button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    pre {
+      min-height: 180px;
+      margin: 10px 0 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #101820;
+      color: #d6e4ec;
+      font: 12px/1.5 Consolas, "SFMono-Regular", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow: auto;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .toolbar select,
+    .toolbar input[type="text"] {
+      width: 86px;
+      height: 34px;
+      padding: 0 8px;
+    }
+
+    .toolbar input[type="color"] {
+      width: 34px;
+      height: 34px;
+      padding: 2px;
+    }
+
+    .editor-shell {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+
+    .phone-stage {
+      display: grid;
+      place-items: start center;
+      min-height: 0;
+      padding: 18px;
+      overflow: auto;
+      background:
+        linear-gradient(90deg, rgba(30, 55, 76, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(30, 55, 76, 0.05) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+
+    .phone {
+      width: min(100%, 430px);
+      min-height: 720px;
+      border: 1px solid #cbd5df;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(16, 24, 40, 0.13);
+      overflow: hidden;
+    }
+
+    .phone-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      border-bottom: 1px solid #edf1f4;
+      color: #8a97a4;
+      font-size: 12px;
+      background: #fff;
+    }
+
+    iframe {
+      width: 100%;
+      height: 680px;
+      border: 0;
+      background: #fff;
+    }
+
+    .agent-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 8px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    .status {
+      min-height: 32px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f7f9fb;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .status.good {
+      border-color: rgba(22, 121, 79, 0.3);
+      background: #f0faf5;
+      color: var(--good);
+    }
+
+    .status.warn {
+      border-color: rgba(161, 92, 9, 0.3);
+      background: #fff7eb;
+      color: var(--warn);
+    }
+
+    .status.bad {
+      border-color: rgba(179, 38, 30, 0.28);
+      background: #fff4f2;
+      color: var(--bad);
+    }
+
+    .op-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .op-item {
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: #eef5f8;
+      color: var(--brand-2);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 820px) {
+      .app {
+        display: block;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      header {
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .title,
+      .title > div:last-child,
+      .panel,
+      .editor-shell,
+      .row > * {
+        min-width: 0;
+      }
+
+      .sub {
+        display: none;
+      }
+
+      .header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 8px;
+      }
+
+      .panel-body {
+        overflow: visible;
+      }
+
+      .phone-stage {
+        padding: 10px;
+      }
+
+      .row {
+        flex-wrap: wrap;
+      }
+
+      .row > * {
+        flex-basis: 180px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      header {
+        display: grid;
+      }
+
+      .header-actions {
+        justify-content: stretch;
+      }
+
+      .header-actions button {
+        flex: 1;
+      }
+
+      .toolbar {
+        padding: 8px;
+      }
+
+      .phone {
+        min-height: 620px;
+      }
+
+      iframe {
+        height: 580px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">
+        <div class="mark">微</div>
+        <div>
+          <h1>微信公众号富文本往返编辑器 MVP</h1>
+          <div class="sub">复制进来保留 HTML 片段，手动或 Agent 修改，再以富文本复制回公众号编辑器</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="loadSampleBtn">载入示例</button>
+        <button id="exportHtmlBtn">导出 HTML</button>
+        <button class="primary" id="copyBtn">复制回公众号</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>剪贴板探针</h2>
+          <span class="badge" id="typesBadge">未导入</span>
+        </div>
+        <div class="panel-body">
+          <div id="pasteZone" class="dropzone" tabindex="0" contenteditable="true">
+            从微信公众号编辑器复制内容后，点击这里粘贴
+          </div>
+          <p class="hint">探针会读取剪贴板里的 <code>text/html</code> 和 <code>text/plain</code>，并统计标签、样式和图片。原始 HTML 会作为真实数据进入中间编辑器。</p>
+
+          <div class="meta-grid">
+            <div class="metric"><b id="tagCount">0</b><span>标签种类</span></div>
+            <div class="metric"><b id="styleCount">0</b><span>样式属性</span></div>
+            <div class="metric"><b id="imageCount">0</b><span>图片</span></div>
+            <div class="metric"><b id="nodeCount">0</b><span>可操作节点</span></div>
+          </div>
+
+          <div class="tabs">
+            <button class="active" data-tab="summary">摘要</button>
+            <button data-tab="html">原始 HTML</button>
+            <button data-tab="outline">结构</button>
+            <button data-tab="compatibility">兼容性</button>
+          </div>
+          <pre id="probeOutput">等待粘贴公众号内容...</pre>
+        </div>
+      </section>
+
+      <section class="panel editor-shell">
+        <div class="toolbar">
+          <button class="icon" id="undoBtn" title="撤销">↶</button>
+          <button class="icon" id="redoBtn" title="重做">↷</button>
+          <button class="icon" data-command="bold" title="加粗">B</button>
+          <button class="icon" data-command="italic" title="斜体">I</button>
+          <button class="icon" data-command="underline" title="下划线">U</button>
+          <select id="fontSizeSelect" title="字号">
+            <option value="">字号</option>
+            <option value="14px">14</option>
+            <option value="15px">15</option>
+            <option value="16px">16</option>
+            <option value="18px">18</option>
+            <option value="20px">20</option>
+            <option value="24px">24</option>
+          </select>
+          <select id="lineHeightSelect" title="行距">
+            <option value="">行距</option>
+            <option value="1.5">1.5</option>
+            <option value="1.75">1.75</option>
+            <option value="2">2</option>
+            <option value="2.2">2.2</option>
+          </select>
+          <input type="color" id="colorInput" title="文字颜色" value="#1d252d" />
+          <input type="color" id="bgInput" title="背景颜色" value="#fff7eb" />
+          <button class="icon" data-align="left" title="左对齐">≡</button>
+          <button class="icon" data-align="center" title="居中">☰</button>
+          <button class="icon" data-align="right" title="右对齐">≣</button>
+          <button id="wrapNoticeBtn">提示框</button>
+          <button id="clearFormatBtn">清样式</button>
+        </div>
+
+        <div class="phone-stage">
+          <div class="phone">
+            <div class="phone-top">公众号预览宽度</div>
+            <iframe id="editorFrame" title="微信公众号富文本编辑区"></iframe>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Agent 操作</h2>
+          <span class="badge" id="selectionBadge">未选中</span>
+        </div>
+        <div class="panel-body">
+          <div class="agent-form">
+            <div class="field">
+              <label for="promptInput">给 LLM 的任务</label>
+              <textarea id="promptInput" rows="4">把选中的文字改得更简洁，但不要改变原有排版。</textarea>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="apiBaseInput">OpenAI-compatible Base URL</label>
+                <input id="apiBaseInput" value="https://api.openai.com/v1" />
+              </div>
+              <div class="field">
+                <label for="modelInput">模型</label>
+                <input id="modelInput" value="gpt-4.1-mini" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="apiKeyInput">API Key（仅保存在当前页面内存）</label>
+              <input id="apiKeyInput" type="password" placeholder="可留空，使用下方本地规则演示" />
+            </div>
+            <div class="row">
+              <button id="localAgentBtn">本地规则演示</button>
+              <button class="primary" id="callAgentBtn">调用 LLM 生成操作</button>
+            </div>
+            <div id="agentStatus" class="status">Agent 只能返回 JSON 操作，不直接整篇重写 HTML。</div>
+            <pre id="opsOutput">{
+  "operations": []
+}</pre>
+            <button id="applyOpsBtn">应用上方操作 JSON</button>
+            <div class="op-list" id="historyList"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      rawHtml: "",
+      importedRawHtml: "",
+      plainText: "",
+      currentTab: "summary",
+      history: [],
+      redo: [],
+      lastOperations: { operations: [] },
+      lastProbe: null,
+      selectedNodeId: null
+    };
+
+    const frame = document.getElementById("editorFrame");
+    const pasteZone = document.getElementById("pasteZone");
+    const probeOutput = document.getElementById("probeOutput");
+    const opsOutput = document.getElementById("opsOutput");
+    const agentStatus = document.getElementById("agentStatus");
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function initFrame(html = "<p style=\"font-size:16px;line-height:1.8;color:#333;\">请先从微信公众号编辑器复制内容并粘贴到左侧探针。</p>") {
+      const doc = frame.contentDocument;
+      doc.open();
+      doc.write(`<!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <style>
+              html, body { margin: 0; padding: 0; background: #fff; }
+              body {
+                min-height: 640px;
+                padding: 22px 18px 42px;
+                color: rgba(0, 0, 0, 0.9);
+                font-size: 17px;
+                font-family: "mp-quote", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+                line-height: 1.6;
+                letter-spacing: 0.034em;
+                text-align: justify;
+                text-underline-position: under;
+                overflow: hidden;
+                outline: none;
+                word-break: break-word;
+              }
+              body * { max-width: 100% !important; box-sizing: border-box !important; overflow-wrap: break-word !important; }
+              p { clear: both; min-height: 1em; }
+              h1, h2, h3, h4, h5, h6 { font-size: 16px; font-weight: 400; }
+              blockquote { padding-left: 10px; border-left: 3px solid #dbdbdb; color: rgba(0, 0, 0, 0.55); font-size: 15px; margin: 1em 0; line-height: 1.6; }
+              a { color: #576b95; text-decoration: none; }
+              td, th { padding: 5px 10px; border: 1px solid #ddd; }
+              .code-snippet { margin: 10px 0; padding: 1em; color: #333; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 2px; font: 14px/1.6 Consolas, "Liberation Mono", Menlo, Courier, monospace; }
+              .we-emoji { width: 1em; height: 1em; font-size: 22px; vertical-align: middle; }
+              [data-wxagent-id] { outline: 0 solid transparent; }
+              [data-wxagent-id]:hover { outline: 1px dashed rgba(20, 108, 148, 0.35); outline-offset: 2px; }
+              .wxagent-selected { outline: 2px solid rgba(20, 108, 148, 0.75) !important; outline-offset: 2px; }
+              img { max-width: 100%; height: auto; }
+            </style>
+          </head>
+          <body contenteditable="true">${html}</body>
+        </html>`);
+      doc.close();
+      assignNodeIds();
+      bindFrameEvents();
+      saveHistory("初始化");
+      updateProbeFromFrame();
+    }
+
+    function bindFrameEvents() {
+      const doc = frame.contentDocument;
+      doc.body.addEventListener("input", () => {
+        assignNodeIds();
+        scheduleProbeUpdate();
+      });
+      doc.addEventListener("selectionchange", updateSelectionState);
+      doc.body.addEventListener("click", updateSelectionState);
+      doc.body.addEventListener("paste", (event) => {
+        const html = event.clipboardData.getData("text/html");
+        if (!html) return;
+        event.preventDefault();
+        const sanitized = sanitizeForEditor(html);
+        doc.execCommand("insertHTML", false, sanitized);
+        assignNodeIds();
+        saveHistory("粘贴片段");
+        updateProbeFromFrame();
+      });
+    }
+
+    let probeTimer = null;
+    function scheduleProbeUpdate() {
+      window.clearTimeout(probeTimer);
+      probeTimer = window.setTimeout(updateProbeFromFrame, 250);
+    }
+
+    function sanitizeForEditor(html) {
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(html, "text/html");
+      parsed.querySelectorAll("script, iframe, object, embed, link, meta, style").forEach((node) => node.remove());
+      parsed.querySelectorAll("*").forEach((node) => {
+        [...node.attributes].forEach((attr) => {
+          const name = attr.name.toLowerCase();
+          const value = attr.value.trim().toLowerCase();
+          if (name.startsWith("on")) node.removeAttribute(attr.name);
+          if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
+        });
+      });
+      return parsed.body.innerHTML;
+    }
+
+    function assignNodeIds() {
+      const doc = frame.contentDocument;
+      let index = 1;
+      doc.body.querySelectorAll("p, section, blockquote, li, td, th, h1, h2, h3, h4, h5, h6, img, span, strong, em").forEach((node) => {
+        if (!node.dataset.wxagentId) {
+          node.dataset.wxagentId = `node-${Date.now().toString(36)}-${index}`;
+        }
+        index += 1;
+      });
+    }
+
+    function getCleanClone() {
+      const doc = frame.contentDocument;
+      const clone = doc.body.cloneNode(true);
+      clone.removeAttribute("contenteditable");
+      clone.querySelectorAll("*").forEach((node) => {
+        node.classList.remove("wxagent-selected");
+        [...node.attributes].forEach((attr) => {
+          if (attr.name.startsWith("data-wxagent") || attr.name === "contenteditable") {
+            node.removeAttribute(attr.name);
+          }
+          if (attr.name === "class" && !node.getAttribute("class")) {
+            node.removeAttribute("class");
+          }
+        });
+      });
+      return clone;
+    }
+
+    function getExportHtml() {
+      return getCleanClone().innerHTML.trim();
+    }
+
+    function getPlainText() {
+      return getCleanClone().textContent.trim();
+    }
+
+    function analyzeHtml(html) {
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(html || "", "text/html");
+      const tags = new Map();
+      const styles = new Map();
+      const images = [];
+      let nodeCount = 0;
+
+      parsed.body.querySelectorAll("*").forEach((node) => {
+        const tag = node.tagName.toLowerCase();
+        tags.set(tag, (tags.get(tag) || 0) + 1);
+        if (node.getAttribute("style")) {
+          node.getAttribute("style").split(";").forEach((item) => {
+            const prop = item.split(":")[0]?.trim().toLowerCase();
+            if (prop) styles.set(prop, (styles.get(prop) || 0) + 1);
+          });
+        }
+        if (node.matches("p, section, blockquote, li, td, th, h1, h2, h3, h4, h5, h6, img")) nodeCount += 1;
+        if (tag === "img") images.push(node.getAttribute("data-src") || node.getAttribute("src") || "");
+      });
+
+      const outline = [...parsed.body.querySelectorAll("p, section, blockquote, li, h1, h2, h3, img")]
+        .slice(0, 80)
+        .map((node, index) => {
+          const text = node.tagName.toLowerCase() === "img"
+            ? `[image] ${node.getAttribute("src") || ""}`
+            : (node.textContent || "").replace(/\s+/g, " ").trim();
+          return {
+            index: index + 1,
+            tag: node.tagName.toLowerCase(),
+            text: text.slice(0, 120),
+            style: node.getAttribute("style") || ""
+          };
+        });
+
+      return {
+        tags: Object.fromEntries([...tags.entries()].sort()),
+        styles: Object.fromEntries([...styles.entries()].sort()),
+        images,
+        nodeCount,
+        outline,
+        htmlLength: html.length,
+        textLength: parsed.body.textContent.trim().length
+      };
+    }
+
+    function validateWechatCompatibility(html) {
+      const parsed = new DOMParser().parseFromString(html || "", "text/html");
+      const issues = [];
+      const add = (level, code, message, count = 1) => issues.push({ level, code, count, message });
+      const count = (selector) => parsed.body.querySelectorAll(selector).length;
+
+      if (count("script, iframe, object, embed, style, link, meta")) add("error", "unsafe-elements", "包含微信会移除或拒绝的元素。", count("script, iframe, object, embed, style, link, meta"));
+      if (count("picture, video, audio, canvas, svg")) add("error", "unsupported-media", "请改用 img 或通过公众号后台插入对应媒体。", count("picture, video, audio, canvas, svg"));
+      if (count("div")) add("warn", "div-normalization", "微信可能把 div 转为 p，复杂布局可能改变。", count("div"));
+      if (count("section.js_plugin_card, [data-type='video'], [data-type='audio'], [data-type='vote'], [data-type='weapp']")) add("warn", "wechat-plugin-card", "微信特有卡片通常不能靠跨编辑器剪贴板无损往返。", count("section.js_plugin_card, [data-type='video'], [data-type='audio'], [data-type='vote'], [data-type='weapp']"));
+
+      const backgroundUrls = [...parsed.body.querySelectorAll("[style]")].filter((node) => /background(?:-image)?\s*:[^;]*url\s*\(/i.test(node.getAttribute("style") || ""));
+      if (backgroundUrls.length) add("warn", "background-url", "微信粘贴预处理可能移除 background-image URL。", backgroundUrls.length);
+
+      const localImages = [...parsed.images].filter((img) => /^(?:file:|blob:|data:)/i.test(img.getAttribute("src") || img.getAttribute("data-src") || ""));
+      if (localImages.length) add("error", "local-image", "本地、Blob 或 Data URL 图片需先上传。", localImages.length);
+
+      const externalImages = [...parsed.images].filter((img) => {
+        const src = img.getAttribute("data-src") || img.getAttribute("src") || "";
+        return /^https?:/i.test(src) && !/\.qpic\.cn|mmbiz\.qlogo\.cn/i.test(src);
+      });
+      if (externalImages.length) add("warn", "external-image", "非微信 CDN 图片是否保留取决于公众号粘贴与图片上传策略。", externalImages.length);
+
+      if (!issues.length) add("pass", "basic-html", "未发现静态检查可识别的微信粘贴风险。仍需在真实公众号后台完成往返测试。", 0);
+      return issues;
+    }
+
+    function renderProbe() {
+      const probe = state.lastProbe;
+      if (!probe) return;
+
+      document.getElementById("tagCount").textContent = Object.keys(probe.tags).length;
+      document.getElementById("styleCount").textContent = Object.keys(probe.styles).length;
+      document.getElementById("imageCount").textContent = probe.images.length;
+      document.getElementById("nodeCount").textContent = probe.nodeCount;
+
+      if (state.currentTab === "html") {
+        probeOutput.textContent = state.importedRawHtml || state.rawHtml || getExportHtml() || "无 HTML";
+      } else if (state.currentTab === "outline") {
+        probeOutput.textContent = JSON.stringify(probe.outline, null, 2);
+      } else if (state.currentTab === "compatibility") {
+        probeOutput.textContent = JSON.stringify(validateWechatCompatibility(getExportHtml()), null, 2);
+      } else {
+        probeOutput.textContent = JSON.stringify({
+          htmlLength: probe.htmlLength,
+          textLength: probe.textLength,
+          tags: probe.tags,
+          styles: probe.styles,
+          images: probe.images
+        }, null, 2);
+      }
+    }
+
+    function updateProbeFromFrame() {
+      state.rawHtml = getExportHtml();
+      state.plainText = getPlainText();
+      state.lastProbe = analyzeHtml(state.rawHtml);
+      renderProbe();
+    }
+
+    function setStatus(message, type = "") {
+      agentStatus.className = `status ${type}`.trim();
+      agentStatus.textContent = message;
+    }
+
+    function saveHistory(label) {
+      const html = frame.contentDocument.body.innerHTML;
+      const last = state.history[state.history.length - 1];
+      if (last && last.html === html) return;
+      state.history.push({ label, html, time: new Date().toLocaleTimeString() });
+      if (state.history.length > 50) state.history.shift();
+      state.redo = [];
+      renderHistory();
+    }
+
+    function restoreHtml(html, label) {
+      frame.contentDocument.body.innerHTML = html;
+      assignNodeIds();
+      bindFrameEvents();
+      updateProbeFromFrame();
+      setStatus(label, "good");
+    }
+
+    function renderHistory() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = state.history.slice(-5).reverse().map((item) => `
+        <div class="op-item">
+          <b>${escapeHtml(item.label)}</b>
+          <span class="muted">${escapeHtml(item.time)}</span>
+        </div>
+      `).join("");
+    }
+
+    function undo() {
+      if (state.history.length < 2) return;
+      const current = state.history.pop();
+      state.redo.push(current);
+      const previous = state.history[state.history.length - 1];
+      restoreHtml(previous.html, `已撤销到：${previous.label}`);
+      renderHistory();
+    }
+
+    function redo() {
+      const next = state.redo.pop();
+      if (!next) return;
+      state.history.push(next);
+      restoreHtml(next.html, `已重做：${next.label}`);
+      renderHistory();
+    }
+
+    function execInFrame(command, value = null) {
+      frame.contentWindow.focus();
+      frame.contentDocument.execCommand(command, false, value);
+      assignNodeIds();
+      saveHistory(command);
+      updateProbeFromFrame();
+    }
+
+    function getSelectionInfo() {
+      const doc = frame.contentDocument;
+      const selection = doc.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+      const range = selection.getRangeAt(0);
+      let element = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+      element = element?.closest("[data-wxagent-id]");
+      return {
+        selection,
+        range,
+        element,
+        nodeId: element?.dataset.wxagentId || null,
+        text: selection.toString()
+      };
+    }
+
+    function updateSelectionState() {
+      const info = getSelectionInfo();
+      frame.contentDocument.querySelectorAll(".wxagent-selected").forEach((node) => node.classList.remove("wxagent-selected"));
+      if (info?.element) {
+        info.element.classList.add("wxagent-selected");
+        state.selectedNodeId = info.nodeId;
+        document.getElementById("selectionBadge").textContent = info.nodeId;
+      } else {
+        state.selectedNodeId = null;
+        document.getElementById("selectionBadge").textContent = "未选中";
+      }
+    }
+
+    function applyInlineStyle(styles) {
+      const info = getSelectionInfo();
+      if (!info) {
+        setStatus("请先在中间编辑区选中文字。", "warn");
+        return;
+      }
+      const span = frame.contentDocument.createElement("span");
+      Object.assign(span.style, styles);
+      try {
+        info.range.surroundContents(span);
+      } catch {
+        const contents = info.range.extractContents();
+        span.appendChild(contents);
+        info.range.insertNode(span);
+      }
+      assignNodeIds();
+      saveHistory("设置行内样式");
+      updateProbeFromFrame();
+    }
+
+    function applyBlockStyle(styles) {
+      const info = getSelectionInfo();
+      if (!info?.element) {
+        setStatus("请先选中一个段落或区块。", "warn");
+        return;
+      }
+      Object.assign(info.element.style, styles);
+      saveHistory("设置区块样式");
+      updateProbeFromFrame();
+    }
+
+    function wrapSelectionAsNotice() {
+      const info = getSelectionInfo();
+      if (!info) {
+        setStatus("请先选中要变成提示框的内容。", "warn");
+        return;
+      }
+      const section = frame.contentDocument.createElement("section");
+      section.setAttribute("style", "margin:16px 0;padding:14px 16px;background:#eef8fb;border-left:4px solid #146c94;border-radius:6px;color:#26343d;line-height:1.8;");
+      const contents = info.range.extractContents();
+      section.appendChild(contents);
+      info.range.insertNode(section);
+      assignNodeIds();
+      saveHistory("包裹提示框");
+      updateProbeFromFrame();
+    }
+
+    function clearSelectedStyle() {
+      const info = getSelectionInfo();
+      if (!info?.element) {
+        setStatus("请先选中要清理样式的节点。", "warn");
+        return;
+      }
+      info.element.removeAttribute("style");
+      saveHistory("清除节点样式");
+      updateProbeFromFrame();
+    }
+
+    function getDocumentView() {
+      const doc = frame.contentDocument;
+      return [...doc.body.querySelectorAll("[data-wxagent-id]")]
+        .filter((node) => {
+          const text = node.tagName.toLowerCase() === "img" ? node.getAttribute("src") : node.textContent;
+          return (text || "").trim();
+        })
+        .slice(0, 120)
+        .map((node) => ({
+          id: node.dataset.wxagentId,
+          tag: node.tagName.toLowerCase(),
+          text: node.tagName.toLowerCase() === "img" ? "" : node.textContent.replace(/\s+/g, " ").trim().slice(0, 500),
+          src: node.tagName.toLowerCase() === "img" ? node.getAttribute("src") : undefined,
+          style: node.getAttribute("style") || ""
+        }));
+    }
+
+    function makeLocalOperations() {
+      const info = getSelectionInfo();
+      if (!info?.nodeId || !info.text.trim()) {
+        setStatus("请先选中要演示修改的一段文字。", "warn");
+        return null;
+      }
+      const compactText = info.text
+        .replace(/\s+/g, " ")
+        .replace(/我们可以/g, "可")
+        .replace(/非常/g, "很")
+        .replace(/进行/g, "")
+        .replace(/的一个/g, "的")
+        .trim();
+
+      return {
+        operations: [
+          {
+            type: "replace_text",
+            nodeId: info.nodeId,
+            oldText: info.text,
+            newText: compactText === info.text.trim() ? `${compactText}（已由本地规则标记为待优化）` : compactText
+          },
+          {
+            type: "set_style",
+            nodeId: info.nodeId,
+            styles: {
+              color: "#146c94"
+            }
+          }
+        ]
+      };
+    }
+
+    async function callLLM() {
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const baseUrl = document.getElementById("apiBaseInput").value.trim().replace(/\/$/, "");
+      const model = document.getElementById("modelInput").value.trim();
+      const prompt = document.getElementById("promptInput").value.trim();
+      const selection = getSelectionInfo();
+
+      if (!apiKey) {
+        setStatus("没有 API Key。可以先点“本地规则演示”验证操作链路。", "warn");
+        return;
+      }
+
+      setStatus("正在请求 LLM 生成结构化操作...", "");
+      const system = `你是微信公众号富文本 DOM 编辑 Agent。只能返回 JSON，不要返回 Markdown。JSON 格式为 {"operations":[...]}。
+允许操作：
+1. replace_text: {"type":"replace_text","nodeId":"...","oldText":"...","newText":"..."}
+2. set_style: {"type":"set_style","nodeId":"...","styles":{"color":"#146c94","fontWeight":"bold"}}
+3. insert_after: {"type":"insert_after","nodeId":"...","html":"<p style=\\"...\\">...</p>"}
+4. delete_node: {"type":"delete_node","nodeId":"..."}
+原则：只改用户要求的节点；保留未修改区域；不要整篇重写 HTML。`;
+
+      const body = {
+        model,
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: JSON.stringify({
+              task: prompt,
+              selectedNodeId: selection?.nodeId || null,
+              selectedText: selection?.text || "",
+              document: getDocumentView()
+            })
+          }
+        ],
+        temperature: 0.2,
+        response_format: { type: "json_object" }
+      };
+
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || "{}";
+        const operations = JSON.parse(content);
+        state.lastOperations = operations;
+        opsOutput.textContent = JSON.stringify(operations, null, 2);
+        setStatus("LLM 已返回操作 JSON，请检查后应用。", "good");
+      } catch (error) {
+        setStatus(`调用失败：${error.message}`, "bad");
+      }
+    }
+
+    function applyOperations(payload) {
+      const doc = frame.contentDocument;
+      const operations = payload.operations || [];
+      const results = [];
+      operations.forEach((op) => {
+        const node = op.nodeId ? doc.querySelector(`[data-wxagent-id="${CSS.escape(op.nodeId)}"]`) : null;
+        if (op.type !== "insert_after" && !node) {
+          results.push({ ok: false, type: op.type, reason: "node not found" });
+          return;
+        }
+        if (op.type === "replace_text") {
+          const oldText = op.oldText || "";
+          if (oldText && node.textContent.includes(oldText)) {
+            node.textContent = node.textContent.replace(oldText, op.newText || "");
+          } else {
+            node.textContent = op.newText || "";
+          }
+          results.push({ ok: true, type: op.type, nodeId: op.nodeId });
+        }
+        if (op.type === "set_style") {
+          Object.entries(op.styles || {}).forEach(([key, value]) => {
+            node.style[key] = value;
+          });
+          results.push({ ok: true, type: op.type, nodeId: op.nodeId });
+        }
+        if (op.type === "insert_after") {
+          const target = doc.querySelector(`[data-wxagent-id="${CSS.escape(op.nodeId)}"]`);
+          if (!target) {
+            results.push({ ok: false, type: op.type, reason: "target not found" });
+            return;
+          }
+          const template = doc.createElement("template");
+          template.innerHTML = sanitizeForEditor(op.html || "");
+          target.after(template.content);
+          results.push({ ok: true, type: op.type, nodeId: op.nodeId });
+        }
+        if (op.type === "delete_node") {
+          node.remove();
+          results.push({ ok: true, type: op.type, nodeId: op.nodeId });
+        }
+      });
+      assignNodeIds();
+      saveHistory("应用 Agent 操作");
+      updateProbeFromFrame();
+      setStatus(`已应用 ${results.filter((item) => item.ok).length}/${operations.length} 个操作。`, "good");
+      return results;
+    }
+
+    async function copyWechatContent() {
+      const html = getExportHtml();
+      const plain = getPlainText();
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              "text/html": new Blob([html], { type: "text/html" }),
+              "text/plain": new Blob([plain], { type: "text/plain" })
+            })
+          ]);
+        } else {
+          throw new Error("ClipboardItem unavailable");
+        }
+        setStatus("已写入富文本剪贴板。现在可以到公众号编辑器 Ctrl+V。", "good");
+      } catch {
+        const helper = document.createElement("div");
+        helper.contentEditable = "true";
+        helper.style.position = "fixed";
+        helper.style.left = "-9999px";
+        helper.innerHTML = html;
+        document.body.appendChild(helper);
+        const range = document.createRange();
+        range.selectNodeContents(helper);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand("copy");
+        helper.remove();
+        selection.removeAllRanges();
+        setStatus("已使用兼容模式复制。若浏览器拦截，请通过 HTTPS 或 localhost 打开。", "warn");
+      }
+    }
+
+    function downloadHtml() {
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>wechat-export</title></head><body>${getExportHtml()}</body></html>`;
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "wechat-export.html";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadSample() {
+      const sample = `
+        <section style="margin:0 8px;color:#3f3f3f;font-size:16px;line-height:1.8;">
+          <h2 style="margin:0 0 14px;font-size:22px;color:#146c94;text-align:center;">公众号富文本往返测试</h2>
+          <p style="margin:0 0 14px;">这是一段从微信公众号编辑器复制出来后，应该尽量保持排版的正文。</p>
+          <section style="margin:18px 0;padding:14px 16px;background:#eef8fb;border-left:4px solid #146c94;border-radius:6px;">
+            <p style="margin:0;color:#26343d;">重点：未被修改的区域，应在复制回微信后保持视觉效果一致。</p>
+          </section>
+          <p style="margin:0 0 14px;">你可以选中这段文字，让右侧 Agent 生成节点级操作。</p>
+        </section>`;
+      initFrame(sample);
+      state.rawHtml = sample;
+      state.importedRawHtml = sample;
+      state.lastProbe = analyzeHtml(sample);
+      document.getElementById("typesBadge").textContent = "示例 HTML";
+      renderProbe();
+      setStatus("示例已载入。", "good");
+    }
+
+    pasteZone.addEventListener("paste", (event) => {
+      event.preventDefault();
+      const types = [...event.clipboardData.types];
+      const html = event.clipboardData.getData("text/html");
+      const plain = event.clipboardData.getData("text/plain");
+      const incoming = html || escapeHtml(plain).replace(/\n/g, "<br>");
+      const sanitized = sanitizeForEditor(incoming);
+      state.importedRawHtml = incoming;
+      state.rawHtml = sanitized;
+      state.plainText = plain;
+      document.getElementById("typesBadge").textContent = types.join(", ") || "未知";
+      initFrame(sanitized);
+      state.lastProbe = analyzeHtml(sanitized);
+      renderProbe();
+      pasteZone.textContent = "已捕获剪贴板内容，可继续粘贴覆盖";
+      setStatus("已导入剪贴板 HTML。", "good");
+    });
+
+    document.querySelectorAll(".tabs button").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        state.currentTab = button.dataset.tab;
+        renderProbe();
+      });
+    });
+
+    document.querySelectorAll("[data-command]").forEach((button) => {
+      button.addEventListener("click", () => execInFrame(button.dataset.command));
+    });
+
+    document.querySelectorAll("[data-align]").forEach((button) => {
+      button.addEventListener("click", () => applyBlockStyle({ textAlign: button.dataset.align }));
+    });
+
+    document.getElementById("fontSizeSelect").addEventListener("change", (event) => {
+      if (event.target.value) applyInlineStyle({ fontSize: event.target.value });
+      event.target.value = "";
+    });
+
+    document.getElementById("lineHeightSelect").addEventListener("change", (event) => {
+      if (event.target.value) applyBlockStyle({ lineHeight: event.target.value });
+      event.target.value = "";
+    });
+
+    document.getElementById("colorInput").addEventListener("change", (event) => applyInlineStyle({ color: event.target.value }));
+    document.getElementById("bgInput").addEventListener("change", (event) => applyInlineStyle({ backgroundColor: event.target.value }));
+    document.getElementById("wrapNoticeBtn").addEventListener("click", wrapSelectionAsNotice);
+    document.getElementById("clearFormatBtn").addEventListener("click", clearSelectedStyle);
+    document.getElementById("undoBtn").addEventListener("click", undo);
+    document.getElementById("redoBtn").addEventListener("click", redo);
+    document.getElementById("copyBtn").addEventListener("click", copyWechatContent);
+    document.getElementById("exportHtmlBtn").addEventListener("click", downloadHtml);
+    document.getElementById("loadSampleBtn").addEventListener("click", loadSample);
+    document.getElementById("localAgentBtn").addEventListener("click", () => {
+      const operations = makeLocalOperations();
+      if (!operations) return;
+      state.lastOperations = operations;
+      opsOutput.textContent = JSON.stringify(operations, null, 2);
+      setStatus("已生成本地规则操作 JSON，请检查后应用。", "good");
+    });
+    document.getElementById("callAgentBtn").addEventListener("click", callLLM);
+    document.getElementById("applyOpsBtn").addEventListener("click", () => {
+      try {
+        const payload = JSON.parse(opsOutput.textContent);
+        applyOperations(payload);
+      } catch (error) {
+        setStatus(`JSON 解析失败：${error.message}`, "bad");
+      }
+    });
+
+    initFrame();
+  </script>
+</body>
+</html>
