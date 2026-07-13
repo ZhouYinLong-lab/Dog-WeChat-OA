@@ -1,0 +1,18 @@
+@media (max-width: 820px) {
+  .app {
+    display: block !important;
+    height: auto !important;
+    min-height: 100vh;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .phone {
+    min-height: 620px !important;
+  }
+}

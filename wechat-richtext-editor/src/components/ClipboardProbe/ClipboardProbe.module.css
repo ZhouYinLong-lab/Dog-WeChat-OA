@@ -1,0 +1,70 @@
+.dropzone {
+  display: grid;
+  place-items: center;
+  min-height: 138px;
+  padding: 18px;
+  border: 1px dashed #9dafbf;
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: var(--muted);
+  text-align: center;
+  outline: none;
+}
+
+.dropzone:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(20, 108, 148, 0.14);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.metric {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.metric b {
+  display: block;
+  font-size: 18px;
+  color: var(--brand-2);
+}
+
+.metric span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f7f9;
+}
+
+.tabs button {
+  flex: 1;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tabs button:hover {
+  background: transparent;
+  border: 0;
+}
+
+.tabs .active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}

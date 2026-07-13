@@ -27,7 +27,7 @@
     body {
       margin: 0;
       min-width: 0;
-      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color: var(--ink);
       background: var(--bg);
     }
@@ -531,7 +531,7 @@
           <span class="badge" id="typesBadge">未导入</span>
         </div>
         <div class="panel-body">
-          <div id="pasteZone" class="dropzone" tabindex="0" contenteditable="true">
+          <div id="pasteZone" class="dropzone" tabindex="0" contenteditable="false" role="button" aria-label="从微信公众号编辑器复制内容后，点击这里粘贴">
             从微信公众号编辑器复制内容后，点击这里粘贴
           </div>
           <p class="hint">探针会读取剪贴板里的 <code>text/html</code> 和 <code>text/plain</code>，并统计标签、样式和图片。原始 HTML 会作为真实数据进入中间编辑器。</p>
@@ -622,7 +622,7 @@
               <button id="localAgentBtn">本地规则演示</button>
               <button class="primary" id="callAgentBtn">调用 LLM 生成操作</button>
             </div>
-            <div id="agentStatus" class="status">Agent 只能返回 JSON 操作，不直接整篇重写 HTML。</div>
+            <div id="agentStatus" class="status" aria-live="polite">Agent 只能返回 JSON 操作，不直接整篇重写 HTML。</div>
             <pre id="opsOutput">{
   "operations": []
 }</pre>
@@ -638,11 +638,9 @@
     const state = {
       rawHtml: "",
       importedRawHtml: "",
-      plainText: "",
       currentTab: "summary",
       history: [],
       redo: [],
-      lastOperations: { operations: [] },
       lastProbe: null,
       selectedNodeId: null
     };
@@ -652,6 +650,10 @@
     const probeOutput = document.getElementById("probeOutput");
     const opsOutput = document.getElementById("opsOutput");
     const agentStatus = document.getElementById("agentStatus");
+
+    function getDoc() {
+      return frame.contentDocument || frame.contentWindow.document;
+    }
 
     function escapeHtml(value) {
       return String(value)
@@ -663,7 +665,9 @@
     }
 
     function initFrame(html = "<p style=\"font-size:16px;line-height:1.8;color:#333;\">请先从微信公众号编辑器复制内容并粘贴到左侧探针。</p>") {
-      const doc = frame.contentDocument;
+      state.history = [];
+      state.redo = [];
+      const doc = getDoc();
       doc.open();
       doc.write(`<!doctype html>
         <html>
@@ -702,14 +706,12 @@
           <body contenteditable="true">${html}</body>
         </html>`);
       doc.close();
-      assignNodeIds();
       bindFrameEvents();
-      saveHistory("初始化");
-      updateProbeFromFrame();
+      commitEditorState("初始化");
     }
 
     function bindFrameEvents() {
-      const doc = frame.contentDocument;
+      const doc = getDoc();
       doc.body.addEventListener("input", () => {
         assignNodeIds();
         scheduleProbeUpdate();
@@ -722,9 +724,7 @@
         event.preventDefault();
         const sanitized = sanitizeForEditor(html);
         doc.execCommand("insertHTML", false, sanitized);
-        assignNodeIds();
-        saveHistory("粘贴片段");
-        updateProbeFromFrame();
+        commitEditorState("粘贴片段");
       });
     }
 
@@ -737,43 +737,44 @@
     function sanitizeForEditor(html) {
       const parser = new DOMParser();
       const parsed = parser.parseFromString(html, "text/html");
-      parsed.querySelectorAll("script, iframe, object, embed, link, meta, style").forEach((node) => node.remove());
+      if (parsed.querySelector("parsererror")) {
+        return escapeHtml(html);
+      }
+      parsed.querySelectorAll("script, iframe, object, embed, link, meta, style, base, form, input, button, textarea, select").forEach((node) => node.remove());
       parsed.querySelectorAll("*").forEach((node) => {
         [...node.attributes].forEach((attr) => {
           const name = attr.name.toLowerCase();
           const value = attr.value.trim().toLowerCase();
           if (name.startsWith("on")) node.removeAttribute(attr.name);
-          if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
+          if ((name === "href" || name === "src" || name.endsWith(":href") || name.endsWith(":src")) && value.startsWith("javascript:")) node.removeAttribute(attr.name);
         });
       });
       return parsed.body.innerHTML;
     }
 
+    let _nodeIdSeq = 0;
     function assignNodeIds() {
-      const doc = frame.contentDocument;
-      let index = 1;
-      doc.body.querySelectorAll("p, section, blockquote, li, td, th, h1, h2, h3, h4, h5, h6, img, span, strong, em").forEach((node) => {
-        if (!node.dataset.wxagentId) {
-          node.dataset.wxagentId = `node-${Date.now().toString(36)}-${index}`;
-        }
-        index += 1;
+      const doc = getDoc();
+      doc.body.querySelectorAll("p, section, blockquote, li, td, th, h1, h2, h3, h4, h5, h6, img, span, strong, em:not([data-wxagent-id])").forEach((node) => {
+        node.dataset.wxagentId = `n${++_nodeIdSeq}`;
       });
     }
 
     function getCleanClone() {
-      const doc = frame.contentDocument;
+      const doc = getDoc();
       const clone = doc.body.cloneNode(true);
       clone.removeAttribute("contenteditable");
       clone.querySelectorAll("*").forEach((node) => {
         node.classList.remove("wxagent-selected");
+        node.removeAttribute("contenteditable");
         [...node.attributes].forEach((attr) => {
-          if (attr.name.startsWith("data-wxagent") || attr.name === "contenteditable") {
+          if (attr.name.startsWith("data-wxagent")) {
             node.removeAttribute(attr.name);
           }
-          if (attr.name === "class" && !node.getAttribute("class")) {
-            node.removeAttribute("class");
-          }
         });
+        if (node.getAttribute("class") === "") {
+          node.removeAttribute("class");
+        }
       });
       return clone;
     }
@@ -789,6 +790,9 @@
     function analyzeHtml(html) {
       const parser = new DOMParser();
       const parsed = parser.parseFromString(html || "", "text/html");
+      if (parsed.querySelector("parsererror")) {
+        return { tags: {}, styles: {}, images: [], nodeCount: 0, outline: [], htmlLength: 0, textLength: 0 };
+      }
       const tags = new Map();
       const styles = new Map();
       const images = [];
@@ -838,18 +842,19 @@
       const add = (level, code, message, count = 1) => issues.push({ level, code, count, message });
       const count = (selector) => parsed.body.querySelectorAll(selector).length;
 
-      if (count("script, iframe, object, embed, style, link, meta")) add("error", "unsafe-elements", "包含微信会移除或拒绝的元素。", count("script, iframe, object, embed, style, link, meta"));
+      if (count("script, iframe, object, embed, style, link, meta, base, form, input, button, textarea, select")) add("error", "unsafe-elements", "包含微信会移除或拒绝的元素。", count("script, iframe, object, embed, style, link, meta, base, form, input, button, textarea, select"));
       if (count("picture, video, audio, canvas, svg")) add("error", "unsupported-media", "请改用 img 或通过公众号后台插入对应媒体。", count("picture, video, audio, canvas, svg"));
       if (count("div")) add("warn", "div-normalization", "微信可能把 div 转为 p，复杂布局可能改变。", count("div"));
       if (count("section.js_plugin_card, [data-type='video'], [data-type='audio'], [data-type='vote'], [data-type='weapp']")) add("warn", "wechat-plugin-card", "微信特有卡片通常不能靠跨编辑器剪贴板无损往返。", count("section.js_plugin_card, [data-type='video'], [data-type='audio'], [data-type='vote'], [data-type='weapp']"));
 
+      const allImages = [...parsed.body.querySelectorAll("img")];
       const backgroundUrls = [...parsed.body.querySelectorAll("[style]")].filter((node) => /background(?:-image)?\s*:[^;]*url\s*\(/i.test(node.getAttribute("style") || ""));
       if (backgroundUrls.length) add("warn", "background-url", "微信粘贴预处理可能移除 background-image URL。", backgroundUrls.length);
 
-      const localImages = [...parsed.images].filter((img) => /^(?:file:|blob:|data:)/i.test(img.getAttribute("src") || img.getAttribute("data-src") || ""));
+      const localImages = allImages.filter((img) => /^(?:file:|blob:|data:)/i.test(img.getAttribute("src") || img.getAttribute("data-src") || ""));
       if (localImages.length) add("error", "local-image", "本地、Blob 或 Data URL 图片需先上传。", localImages.length);
 
-      const externalImages = [...parsed.images].filter((img) => {
+      const externalImages = allImages.filter((img) => {
         const src = img.getAttribute("data-src") || img.getAttribute("src") || "";
         return /^https?:/i.test(src) && !/\.qpic\.cn|mmbiz\.qlogo\.cn/i.test(src);
       });
@@ -887,9 +892,14 @@
 
     function updateProbeFromFrame() {
       state.rawHtml = getExportHtml();
-      state.plainText = getPlainText();
       state.lastProbe = analyzeHtml(state.rawHtml);
       renderProbe();
+    }
+
+    function commitEditorState(label) {
+      assignNodeIds();
+      saveHistory(label);
+      updateProbeFromFrame();
     }
 
     function setStatus(message, type = "") {
@@ -898,7 +908,7 @@
     }
 
     function saveHistory(label) {
-      const html = frame.contentDocument.body.innerHTML;
+      const html = getDoc().body.innerHTML;
       const last = state.history[state.history.length - 1];
       if (last && last.html === html) return;
       state.history.push({ label, html, time: new Date().toLocaleTimeString() });
@@ -908,9 +918,8 @@
     }
 
     function restoreHtml(html, label) {
-      frame.contentDocument.body.innerHTML = html;
+      getDoc().body.innerHTML = html;
       assignNodeIds();
-      bindFrameEvents();
       updateProbeFromFrame();
       setStatus(label, "good");
     }
@@ -944,14 +953,12 @@
 
     function execInFrame(command, value = null) {
       frame.contentWindow.focus();
-      frame.contentDocument.execCommand(command, false, value);
-      assignNodeIds();
-      saveHistory(command);
-      updateProbeFromFrame();
+      getDoc().execCommand(command, false, value);
+      commitEditorState(command);
     }
 
     function getSelectionInfo() {
-      const doc = frame.contentDocument;
+      const doc = getDoc();
       const selection = doc.getSelection();
       if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
       const range = selection.getRangeAt(0);
@@ -970,7 +977,7 @@
 
     function updateSelectionState() {
       const info = getSelectionInfo();
-      frame.contentDocument.querySelectorAll(".wxagent-selected").forEach((node) => node.classList.remove("wxagent-selected"));
+      getDoc().querySelectorAll(".wxagent-selected").forEach((node) => node.classList.remove("wxagent-selected"));
       if (info?.element) {
         info.element.classList.add("wxagent-selected");
         state.selectedNodeId = info.nodeId;
@@ -987,7 +994,7 @@
         setStatus("请先在中间编辑区选中文字。", "warn");
         return;
       }
-      const span = frame.contentDocument.createElement("span");
+      const span = getDoc().createElement("span");
       Object.assign(span.style, styles);
       try {
         info.range.surroundContents(span);
@@ -996,9 +1003,7 @@
         span.appendChild(contents);
         info.range.insertNode(span);
       }
-      assignNodeIds();
-      saveHistory("设置行内样式");
-      updateProbeFromFrame();
+      commitEditorState("设置行内样式");
     }
 
     function applyBlockStyle(styles) {
@@ -1008,8 +1013,7 @@
         return;
       }
       Object.assign(info.element.style, styles);
-      saveHistory("设置区块样式");
-      updateProbeFromFrame();
+      commitEditorState("设置区块样式");
     }
 
     function wrapSelectionAsNotice() {
@@ -1018,14 +1022,12 @@
         setStatus("请先选中要变成提示框的内容。", "warn");
         return;
       }
-      const section = frame.contentDocument.createElement("section");
+      const section = getDoc().createElement("section");
       section.setAttribute("style", "margin:16px 0;padding:14px 16px;background:#eef8fb;border-left:4px solid #146c94;border-radius:6px;color:#26343d;line-height:1.8;");
       const contents = info.range.extractContents();
       section.appendChild(contents);
       info.range.insertNode(section);
-      assignNodeIds();
-      saveHistory("包裹提示框");
-      updateProbeFromFrame();
+      commitEditorState("包裹提示框");
     }
 
     function clearSelectedStyle() {
@@ -1035,12 +1037,11 @@
         return;
       }
       info.element.removeAttribute("style");
-      saveHistory("清除节点样式");
-      updateProbeFromFrame();
+      commitEditorState("清除节点样式");
     }
 
     function getDocumentView() {
-      const doc = frame.contentDocument;
+      const doc = getDoc();
       return [...doc.body.querySelectorAll("[data-wxagent-id]")]
         .filter((node) => {
           const text = node.tagName.toLowerCase() === "img" ? node.getAttribute("src") : node.textContent;
@@ -1141,7 +1142,6 @@
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content || "{}";
         const operations = JSON.parse(content);
-        state.lastOperations = operations;
         opsOutput.textContent = JSON.stringify(operations, null, 2);
         setStatus("LLM 已返回操作 JSON，请检查后应用。", "good");
       } catch (error) {
@@ -1150,7 +1150,7 @@
     }
 
     function applyOperations(payload) {
-      const doc = frame.contentDocument;
+      const doc = getDoc();
       const operations = payload.operations || [];
       const results = [];
       operations.forEach((op) => {
@@ -1161,21 +1161,23 @@
         }
         if (op.type === "replace_text") {
           const oldText = op.oldText || "";
-          if (oldText && node.textContent.includes(oldText)) {
-            node.textContent = node.textContent.replace(oldText, op.newText || "");
-          } else {
-            node.textContent = op.newText || "";
+          if (oldText && !node.textContent.includes(oldText)) {
+            results.push({ ok: false, type: op.type, reason: "oldText not found in node", nodeId: op.nodeId });
+            return;
           }
+          node.textContent = oldText ? node.textContent.replace(oldText, op.newText || "") : (op.newText || "");
           results.push({ ok: true, type: op.type, nodeId: op.nodeId });
         }
         if (op.type === "set_style") {
+          const forbidden = new Set(["cssText", "length", "parentRule", "setProperty", "removeProperty", "getPropertyValue", "getPropertyPriority", "item"]);
           Object.entries(op.styles || {}).forEach(([key, value]) => {
+            if (forbidden.has(key)) return;
             node.style[key] = value;
           });
           results.push({ ok: true, type: op.type, nodeId: op.nodeId });
         }
         if (op.type === "insert_after") {
-          const target = doc.querySelector(`[data-wxagent-id="${CSS.escape(op.nodeId)}"]`);
+          const target = node || doc.querySelector(`[data-wxagent-id="${CSS.escape(op.nodeId)}"]`);
           if (!target) {
             results.push({ ok: false, type: op.type, reason: "target not found" });
             return;
@@ -1190,9 +1192,7 @@
           results.push({ ok: true, type: op.type, nodeId: op.nodeId });
         }
       });
-      assignNodeIds();
-      saveHistory("应用 Agent 操作");
-      updateProbeFromFrame();
+      commitEditorState("应用 Agent 操作");
       setStatus(`已应用 ${results.filter((item) => item.ok).length}/${operations.length} 个操作。`, "good");
       return results;
     }
@@ -1238,7 +1238,7 @@
       a.href = url;
       a.download = "wechat-export.html";
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
 
     function loadSample() {
@@ -1251,29 +1251,28 @@
           </section>
           <p style="margin:0 0 14px;">你可以选中这段文字，让右侧 Agent 生成节点级操作。</p>
         </section>`;
-      initFrame(sample);
-      state.rawHtml = sample;
       state.importedRawHtml = sample;
-      state.lastProbe = analyzeHtml(sample);
+      initFrame(sample);
       document.getElementById("typesBadge").textContent = "示例 HTML";
-      renderProbe();
       setStatus("示例已载入。", "good");
     }
 
     pasteZone.addEventListener("paste", (event) => {
       event.preventDefault();
-      const types = [...event.clipboardData.types];
-      const html = event.clipboardData.getData("text/html");
-      const plain = event.clipboardData.getData("text/plain");
+      let types, html, plain;
+      try {
+        types = [...event.clipboardData.types];
+        html = event.clipboardData.getData("text/html");
+        plain = event.clipboardData.getData("text/plain");
+      } catch (err) {
+        setStatus(`无法读取剪贴板：${err.message}`, "bad");
+        return;
+      }
       const incoming = html || escapeHtml(plain).replace(/\n/g, "<br>");
       const sanitized = sanitizeForEditor(incoming);
       state.importedRawHtml = incoming;
-      state.rawHtml = sanitized;
-      state.plainText = plain;
       document.getElementById("typesBadge").textContent = types.join(", ") || "未知";
       initFrame(sanitized);
-      state.lastProbe = analyzeHtml(sanitized);
-      renderProbe();
       pasteZone.textContent = "已捕获剪贴板内容，可继续粘贴覆盖";
       setStatus("已导入剪贴板 HTML。", "good");
     });
@@ -1317,7 +1316,6 @@
     document.getElementById("localAgentBtn").addEventListener("click", () => {
       const operations = makeLocalOperations();
       if (!operations) return;
-      state.lastOperations = operations;
       opsOutput.textContent = JSON.stringify(operations, null, 2);
       setStatus("已生成本地规则操作 JSON，请检查后应用。", "good");
     });
